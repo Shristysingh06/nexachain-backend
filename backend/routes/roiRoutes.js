@@ -1,33 +1,15 @@
 const express = require("express");
 const router = express.Router();
 
-const { protect } = require("../middleware/authMiddleware");
-const ROIHistory = require("../models/ROIHistory");
+const authMiddleware = require("../middleware/authMiddleware");
 
+// ✅ correct import
+const roiController = require("../controllers/roiController");
 
-router.get("/my", protect, async (req, res) => {
+// 🔥 DEBUG
+console.log("ROI Controller:", roiController);
 
-  try {
-
-    const roiHistory = await ROIHistory.find({
-      user: req.user._id
-    })
-    .populate("investment")
-    .sort({ date: -1 });
-
-
-    res.json(roiHistory);
-
-
-  } catch(error){
-
-    res.status(500).json({
-      message: error.message
-    });
-
-  }
-
-});
-
+// ✅ routes
+router.get("/my", authMiddleware, roiController.getMyROI);
 
 module.exports = router;

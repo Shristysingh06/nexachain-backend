@@ -1,12 +1,28 @@
 const Investment = require("../models/Investment");
 const User = require("../models/User");
 
-// 💰 Create Investment
-exports.createInvestment = async (req, res) => {
+// CREATE INVESTMENT
+const invest = async (req, res) => {
   try {
-    const { amount } = req.body;
+    const {
+      investmentAmount,
+      planDetails,
+      dailyROIPercentage,
+    } = req.body;
 
-    const user = await User.findById(req.user._id);
+    // Validate investment amount
+    if (!investmentAmount || Number(investmentAmount) <= 0) {
+      return res.status(400).json({
+        message: "Valid investment amount is required",
+      });
+    }
+
+    const amount = Number(investmentAmount);
+    const roi = Number(dailyROIPercentage) || 1;
+    const plan = planDetails || "NexaChain Investment Plan";
+
+    // Find user
+    const user = await User.findById(req.user.id);
 
     if (!user) {
       return res.status(404).json({
@@ -14,46 +30,60 @@ exports.createInvestment = async (req, res) => {
       });
     }
 
+    // Check wallet balance
     if (user.walletBalance < amount) {
       return res.status(400).json({
-        message: "Insufficient balance",
+        message: "Insufficient wallet balance",
       });
     }
 
-    // 💸 Deduct balance
-    user.walletBalance -= amount;
-
-    const investment = await Investment.create({
-      user: user._id,
-      amount,
+    // Create investment
+    const investment = new Investment({
+      user: req.user.id,
+      investmentAmount: amount,
+      planDetails: plan,
+      dailyROIPercentage: roi,
+      maxDays: 30,
     });
+
+    await investment.save();
+
+    // Deduct amount from wallet
+    user.walletBalance -= amount;
 
     await user.save();
 
-    res.json({
+    return res.status(201).json({
       message: "Investment successful",
       investment,
     });
+  } catch (err) {
+    console.error("Investment Error:", err);
 
-  } catch (error) {
-    res.status(500).json({
-      message: error.message,
+    return res.status(500).json({
+      message: err.message,
     });
   }
 };
 
-// 📊 Get My Investments
-exports.getMyInvestments = async (req, res) => {
+// GET MY INVESTMENTS
+const getMyInvestments = async (req, res) => {
   try {
     const investments = await Investment.find({
-      user: req.user._id,
-    });
+      user: req.user.id,
+    }).sort({ createdAt: -1 });
 
-    res.json(investments);
+    return res.status(200).json(investments);
+  } catch (err) {
+    console.error("Get Investments Error:", err);
 
-  } catch (error) {
-    res.status(500).json({
-      message: error.message,
+    return res.status(500).json({
+      message: err.message,
     });
   }
+};
+
+module.exports = {
+  invest,
+  getMyInvestments,
 };

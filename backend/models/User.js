@@ -2,16 +2,33 @@ const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
 const crypto = require("crypto");
 
-// ✅ Schema define करो पहले
 const userSchema = new mongoose.Schema(
   {
-    fullName: { type: String, required: true },
+    fullName: {
+      type: String,
+      required: true,
+      trim: true,
+    },
 
-    email: { type: String, required: true, unique: true },
+    email: {
+      type: String,
+      required: true,
+      unique: true,
+      lowercase: true,
+      trim: true,
+    },
 
-    mobile: { type: String, required: true },
+    mobile: {
+      type: String,
+      required: true,
+      trim: true,
+    },
 
-    password: { type: String, required: true },
+    password: {
+      type: String,
+      required: true,
+      minlength: 6,
+    },
 
     role: {
       type: String,
@@ -22,56 +39,71 @@ const userSchema = new mongoose.Schema(
     referralCode: {
       type: String,
       unique: true,
+      index: true,
     },
 
     referredBy: {
-      type: String,
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
     },
 
     walletBalance: {
       type: Number,
       default: 0,
+      min: 0,
     },
 
     totalROI: {
       type: Number,
       default: 0,
+      min: 0,
     },
 
     totalLevelIncome: {
       type: Number,
       default: 0,
+      min: 0,
     },
 
     levelIncome: {
       type: Number,
       default: 0,
+      min: 0,
     },
 
     status: {
       type: String,
+      enum: ["active", "inactive", "blocked"],
       default: "active",
     },
   },
-  { timestamps: true }
+  {
+    timestamps: true,
+  }
 );
 
-// 🔐 FIXED HOOK (NO next)
-userSchema.pre("save", async function () {
-  if (this.isModified("password")) {
-    const salt = await bcrypt.genSalt(10);
-    this.password = await bcrypt.hash(this.password, salt);
-  }
-
+// Generate referral code
+userSchema.pre("validate", function () {
   if (!this.referralCode) {
-    this.referralCode = crypto.randomBytes(4).toString("hex");
+    this.referralCode =
+      "NEXA-" + crypto.randomBytes(4).toString("hex").toUpperCase();
   }
 });
 
-// 🔑 Match Password
-userSchema.methods.matchPassword = async function (enteredPassword) {
-  return await bcrypt.compare(enteredPassword, this.password);
+// Hash password before saving
+userSchema.pre("save", async function () {
+  if (!this.isModified("password")) {
+    return;
+  }
+
+  const salt = await bcrypt.genSalt(10);
+  this.password = await bcrypt.hash(this.password, salt);
+});
+
+// Compare password
+userSchema.methods.comparePassword = async function (candidatePassword) {
+  return bcrypt.compare(candidatePassword, this.password);
 };
 
-// ✅ Export model
 module.exports = mongoose.model("User", userSchema);

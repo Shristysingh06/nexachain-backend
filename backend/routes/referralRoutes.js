@@ -1,13 +1,17 @@
 const express = require("express");
 const router = express.Router();
 
-const {
-  createReferralIncome,
-  getReferralIncome,
-} = require("../controllers/referralController");
+const authMiddleware = require("../middleware/authMiddleware");
 
-router.post("/", createReferralIncome);
-router.get("/", getReferralIncome);
+// ✅ correct import
+const referralController = require("../controllers/referralController");
 
-module.exports = router;
+// 🔥 DEBUG
+console.log("Referral Controller:", referralController);
+
+// ✅ routes
+router.get("/my", authMiddleware, referralController.getMyReferrals);
+
+router.post("/create", authMiddleware, referralController.createReferral);
+
 module.exports = router;

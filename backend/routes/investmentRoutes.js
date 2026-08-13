@@ -1,16 +1,20 @@
 const express = require("express");
 const router = express.Router();
 
-const { protect } = require("../middleware/authMiddleware");
+const authMiddleware = require("../middleware/authMiddleware");
 
-// ✅ सही import
 const {
-  createInvestment,
+  invest,
   getMyInvestments,
 } = require("../controllers/investmentController");
 
-// ✅ routes
-router.post("/", protect, createInvestment);
-router.get("/my", protect, getMyInvestments);
+// Create investment
+router.post("/", authMiddleware, invest);
+
+// Get logged-in user's investments
+router.get("/my", authMiddleware, getMyInvestments);
+
+// Also support /api/investments
+router.get("/", authMiddleware, getMyInvestments);
 
 module.exports = router;

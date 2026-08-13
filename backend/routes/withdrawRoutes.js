@@ -1,21 +1,17 @@
 const express = require("express");
 const router = express.Router();
 
-const {
-  requestWithdraw,
-  approveWithdraw,
-  rejectWithdraw,
-  myWithdraws,
-} = require("../controllers/withdrawController");
+const authMiddleware = require("../middleware/authMiddleware");
 
-const { protect, admin } = require("../middleware/authMiddleware");
+// ✅ correct import
+const withdrawController = require("../controllers/withdrawController");
 
-// 💸 user
-router.post("/", protect, requestWithdraw);
-router.get("/my", protect, myWithdraws);
+// 🔥 DEBUG
+console.log("Withdraw Controller:", withdrawController);
 
-// 👑 admin
-router.put("/approve/:id", protect, admin, approveWithdraw);
-router.put("/reject/:id", protect, admin, rejectWithdraw);
+// ✅ routes
+router.post("/request", authMiddleware, withdrawController.requestWithdraw);
+
+router.get("/my", authMiddleware, withdrawController.getMyWithdrawals);
 
 module.exports = router;

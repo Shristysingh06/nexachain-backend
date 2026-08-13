@@ -1,105 +1,93 @@
 const User = require("../models/User");
+const Investment = require("../models/Investment");
+const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 
-// =========================
-// 🔐 GENERATE TOKEN
-// =========================
-const generateToken = (id) => {
-  return jwt.sign({ id }, process.env.JWT_SECRET, {
-    expiresIn: "7d",
-  });
-};
-
-// =========================
-// 🔹 REGISTER USER
-// =========================
+// ================= REGISTER =================
 exports.registerUser = async (req, res) => {
   try {
-    const { fullName, email, mobile, password, referralCode } = req.body;
+    const { fullName, mobile, email, password } = req.body;
 
-    const userExists = await User.findOne({ email });
-
-    if (userExists) {
-      return res.status(400).json({
-        message: "User already exists",
-      });
+    let user = await User.findOne({ email });
+    if (user) {
+      return res.status(400).json({ message: "User already exists" });
     }
 
-    const user = new User({
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
+    user = new User({
       fullName,
-      email,
       mobile,
-      password,
-      referredBy: referralCode || null,
+      email,
+      password: hashedPassword,
+      walletBalance: 0,
+      totalROI: 0,
+      totalLevelIncome: 0,
     });
 
     await user.save();
 
-    res.status(201).json({
-      message: "User registered successfully",
-      token: generateToken(user._id),
-      role: user.role,
-    });
-
+    res.status(201).json({ message: "User registered successfully" });
   } catch (error) {
-    res.status(500).json({
-      message: error.message,
-    });
+    res.status(500).json({ message: error.message });
   }
 };
 
-// =========================
-// 🔹 LOGIN USER
-// =========================
+// ================= LOGIN =================
 exports.loginUser = async (req, res) => {
   try {
     const { email, password } = req.body;
 
     const user = await User.findOne({ email });
-
     if (!user) {
-      return res.status(400).json({
-        message: "Invalid email or password",
-      });
+      return res.status(400).json({ message: "Invalid email or password" });
     }
 
-    const isMatch = await user.matchPassword(password);
-
+    const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      return res.status(400).json({
-        message: "Invalid email or password",
-      });
+      return res.status(400).json({ message: "Invalid email or password" });
     }
 
-    res.json({
-      message: "Login successful",
-      token: generateToken(user._id),
-      role: user.role,
-    });
-
-  } catch (error) {
-    res.status(500).json({
-      message: error.message,
-    });
-  }
-};
-
-// =========================
-// 🔹 DASHBOARD API ✅
-// =========================
-exports.getDashboard = async (req, res) => {
-  try {
-    const user = await User.findById(req.user._id).select(
-      "walletBalance totalROI totalLevelIncome"
+    const token = jwt.sign(
+      { id: user._id },
+      process.env.JWT_SECRET,
+      { expiresIn: "1d" }
     );
 
     res.json({
-      walletBalance: user.walletBalance,
-      totalROI: user.totalROI,
-      totalLevelIncome: user.totalLevelIncome,
+      message: "Login successful",
+      token,
     });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
 
-  } catch (err) {
-    res.status(500).json({ message: err.message });
+// ================= DASHBOARD (FIXED 🔥) =================
+exports.getDashboard = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    // user data
+    const user = await User.findById(userId);
+
+    // investments
+    const investments = await Investment.find({ user: userId });
+
+    // total investment
+    const totalInvestment = investments.reduce(
+      (sum, inv) => sum + inv.amount,
+      0
+    );
+
+    res.json({
+      walletBalance: user.walletBalance || 0,
+      totalROI: user.totalROI || 0,
+      totalLevelIncome: user.totalLevelIncome || 0,
+      totalInvestment,
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
   }
 };

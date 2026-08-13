@@ -1,70 +1,34 @@
-const User = require("../models/User");
-const ReferralIncome = require("../models/ReferralIncome");
+const Referral = require("../models/Referral");
 
-// 🔥 LEVEL INCOME DISTRIBUTION (already done)
-exports.distributeLevelIncome = async (userId, amount) => {
+// 🔥 GET MY REFERRALS
+const getMyReferrals = async (req, res) => {
   try {
-    let currentUser = await User.findById(userId);
-
-    let level = 1;
-    let maxLevels = 3;
-
-    while (currentUser.referredBy && level <= maxLevels) {
-      const parent = await User.findOne({
-        referralCode: currentUser.referredBy,
-      });
-
-      if (!parent) break;
-
-      let percentage = level === 1 ? 10 : level === 2 ? 5 : 2;
-
-      const income = (amount * percentage) / 100;
-
-      parent.totalLevelIncome += income;
-      await parent.save();
-
-      await ReferralIncome.create({
-        user: parent._id,
-        referredUser: currentUser._id,
-        incomeAmount: income,
-        level,
-      });
-
-      currentUser = parent;
-      level++;
-    }
-  } catch (error) {
-    console.log(error);
+    const referrals = await Referral.find({ user: req.user.id });
+    res.json(referrals);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
   }
 };
 
-// ✅ CREATE REFERRAL INCOME (dummy / manual test)
-exports.createReferralIncome = async (req, res) => {
+// 🔥 CREATE REFERRAL
+const createReferral = async (req, res) => {
   try {
-    const { user, referredUser, amount, level } = req.body;
+    const { referredUser } = req.body;
 
-    const data = await ReferralIncome.create({
-      user,
-      referredUser,
-      incomeAmount: amount,
-      level,
+    const referral = new Referral({
+      user: req.user.id,
+      referredUser
     });
 
-    res.json({ message: "Referral Income Created", data });
+    await referral.save();
+
+    res.json({ message: "Referral created", referral });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ message: err.message });
   }
 };
 
-// ✅ GET ALL REFERRAL INCOME
-exports.getReferralIncome = async (req, res) => {
-  try {
-    const data = await ReferralIncome.find()
-      .populate("user", "fullName email")
-      .populate("referredUser", "fullName email");
-
-    res.json(data);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+module.exports = {
+  getMyReferrals,
+  createReferral
 };

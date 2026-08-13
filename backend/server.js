@@ -3,52 +3,40 @@ const mongoose = require("mongoose");
 const dotenv = require("dotenv");
 const cors = require("cors");
 
-// Load env
 dotenv.config();
 
 const app = express();
 
-// ======================
-// 🔹 MIDDLEWARE
-// ======================
-app.use(express.json());
+// ================= MIDDLEWARE =================
 app.use(cors());
+app.use(express.json());
 
-// ======================
-// 🔹 ROUTES
-// ======================
-app.get("/", (req, res) => {
-  res.send("🚀 Nexachain API running...");
-});
-
-// User Routes
+// ================= ROUTES =================
+const authRoutes = require("./routes/authRoutes");
 const userRoutes = require("./routes/userRoutes");
+const investmentRoutes = require("./routes/investmentRoutes");
+const walletRoutes = require("./routes/walletRoutes");
+
+app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
+app.use("/api/investments", investmentRoutes);
+app.use("/api/wallet", walletRoutes);
 
-// ROI Routes
-const roiRoutes = require("./routes/roiRoutes");
-app.use("/api/roi", roiRoutes);
-
-// ======================
-// 🔥 CRON JOB
-// ======================
-require("./cron/roiCron");
-
-// ======================
-// 🔹 DATABASE CONNECT
-// ======================
-mongoose.connect(process.env.MONGO_URI)
-  .then(() => console.log("✅ MongoDB connected"))
-  .catch((err) => {
-    console.error("❌ MongoDB Error:", err.message);
-    process.exit(1);
-  });
-
-// ======================
-// 🔹 SERVER START
-// ======================
-const PORT = process.env.PORT || 5000;
-
-app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
+// ================= ROOT =================
+app.get("/", (req, res) => {
+  res.send("API RUNNING 🚀");
 });
+
+// ================= DATABASE =================
+mongoose
+  .connect(process.env.MONGO_URI)
+  .then(() => {
+    console.log("✅ MongoDB Connected");
+
+    app.listen(5000, () => {
+      console.log("🚀 Server running on port 5000");
+    });
+  })
+  .catch((err) => {
+    console.log("❌ DB Error:", err);
+  });

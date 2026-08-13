@@ -1,81 +1,97 @@
-const mongoose = require("mongoose");
+const Investment = require("../models/Investment");
+const User = require("../models/User");
 
-const investmentSchema = new mongoose.Schema(
-  {
-    user: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
-      required: true,
-    },
+// =========================
+// CREATE INVESTMENT
+// =========================
+const invest = async (req, res) => {
+  try {
+    const {
+      investmentAmount,
+      planDetails,
+      dailyROIPercentage,
+    } = req.body;
 
-    investmentAmount: {
-      type: Number,
-      required: true,
-    },
+    // Validate amount
+    if (!investmentAmount || Number(investmentAmount) <= 0) {
+      return res.status(400).json({
+        message: "Valid investment amount is required",
+      });
+    }
 
-    planDetails: {
-      type: String,
-      required: true,
-    },
+    const amount = Number(investmentAmount);
+    const roi = Number(dailyROIPercentage) || 1;
+    const plan = planDetails || "NexaChain Investment Plan";
 
-    startDate: {
-      type: Date,
-      default: Date.now,
-    },
+    // Find user
+    const user = await User.findById(req.user.id);
 
-    endDate: {
-      type: Date,
-    },
+    if (!user) {
+      return res.status(404).json({
+        message: "User not found",
+      });
+    }
 
-    dailyROIPercentage: {
-      type: Number,
-      required: true,
-    },
+    // Check wallet balance
+    if (user.walletBalance < amount) {
+      return res.status(400).json({
+        message: "Insufficient wallet balance",
+      });
+    }
 
-    totalExpectedReturn: {
-      type: Number,
-    },
+    // Create investment
+    const investment = new Investment({
+      user: req.user.id,
+      investmentAmount: amount,
+      planDetails: plan,
+      dailyROIPercentage: roi,
+      maxDays: 30,
+    });
 
-    // ✅ ROI TRACKING
-    totalEarned: {
-      type: Number,
-      default: 0,
-    },
+    await investment.save();
 
-    daysCompleted: {
-      type: Number,
-      default: 0,
-    },
+    // Deduct investment amount from wallet
+    user.walletBalance -= amount;
 
-    maxDays: {
-      type: Number,
-      default: 30,
-    },
+    await user.save();
 
-    investmentStatus: {
-      type: String,
-      enum: ["Active", "Completed", "Cancelled"],
-      default: "Active",
-    },
-  },
-  { timestamps: true }
-);
+    return res.status(201).json({
+      message: "Investment successful",
+      investment,
+    });
 
-// ✅ AUTO CALCULATE
-investmentSchema.pre("save", function (next) {
-  if (!this.totalExpectedReturn) {
-    this.totalExpectedReturn =
-      (this.investmentAmount * this.dailyROIPercentage * this.maxDays) / 100;
+  } catch (err) {
+    console.error("Investment Error:", err);
+
+    return res.status(500).json({
+      message: err.message,
+    });
   }
+};
 
-  // ✅ auto endDate
-  if (!this.endDate) {
-    const end = new Date(this.startDate);
-    end.setDate(end.getDate() + this.maxDays);
-    this.endDate = end;
+
+// =========================
+// GET MY INVESTMENTS
+// =========================
+const getMyInvestments = async (req, res) => {
+  try {
+    const investments = await Investment.find({
+      user: req.user.id,
+    }).sort({ createdAt: -1 });
+
+    return res.status(200).json(investments);
+
+  } catch (err) {
+    console.error("Get Investments Error:", err);
+
+    return res.status(500).json({
+      message: err.message,
+    });
   }
+};
 
-  next();
-});
 
-module.exports = mongoose.model("Investment", investmentSchema);
+module.exports = {
+  invest,
+  getMyInvestments,
+};
