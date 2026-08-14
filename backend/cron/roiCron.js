@@ -4,15 +4,15 @@ const Investment = require("../models/Investment");
 const User = require("../models/User");
 const ROIHistory = require("../models/ROIHistory");
 
-cron.schedule("0 0 * * *", async () => {
-  console.log("⏰ Running Daily ROI Job...");
+cron.schedule("* * * * *", async () => {
+  console.log("Running Daily ROI Job...");
 
   try {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
     const investments = await Investment.find({
-      status: "Active"
+      status: "Active",
     });
 
     if (investments.length === 0) {
@@ -23,39 +23,47 @@ cron.schedule("0 0 * * *", async () => {
     for (const investment of investments) {
       const alreadyProcessed = await ROIHistory.findOne({
         investment: investment._id,
-        date: today
+        date: today,
       });
 
       if (alreadyProcessed) {
-        console.log(`⏭ ROI already processed for ${investment._id}`);
+        console.log(`ROI already processed for ${investment._id}`);
         continue;
       }
 
       const roiAmount =
-        (investment.amount * investment.dailyROI) / 100;
+        (investment.investmentAmount *
+          investment.dailyROIPercentage) /
+        100;
 
       await ROIHistory.create({
         user: investment.user,
         investment: investment._id,
-        amount: roiAmount,
+        roiAmount: roiAmount,
+        roiPercentage: investment.dailyROIPercentage,
         date: today,
-        status: "Credited"
+      });
+
+      await Investment.findByIdAndUpdate(investment._id, {
+        $inc: {
+          totalROIEarned: roiAmount,
+        },
       });
 
       await User.findByIdAndUpdate(investment.user, {
         $inc: {
           walletBalance: roiAmount,
-          totalROI: roiAmount
-        }
+          totalROI: roiAmount,
+        },
       });
 
-      console.log(`✅ ROI Credited: ${roiAmount}`);
+      console.log(`ROI Credited: ${roiAmount}`);
     }
 
-    console.log("🎉 Daily ROI Distribution Completed");
+    console.log("Daily ROI Distribution Completed");
   } catch (error) {
-    console.log("❌ ROI Cron Error:", error.message);
+    console.error("ROI Cron Error:", error);
   }
 });
 
-console.log("✅ ROI Cron Scheduler Started");
+console.log("ROI Cron Job Scheduled Successfully");
