@@ -2,111 +2,285 @@ const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
 const User = require("../models/User");
 
+
 // ================= REGISTER =================
+
 exports.register = async (req, res) => {
+
   try {
-    const { fullName, email, mobile, password, referralCode } = req.body;
 
-    if (!fullName || !email || !mobile || !password) {
-      return res.status(400).json({
-        message: "Full name, email, mobile and password are required",
-      });
-    }
-
-    const existingUser = await User.findOne({ email });
-
-    if (existingUser) {
-      return res.status(400).json({
-        message: "Email already registered",
-      });
-    }
-
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    const user = new User({
+    const {
       fullName,
       email,
       mobile,
-      password: hashedPassword,
-      referredBy: referralCode || null,
+      password,
+      referralCode
+    } = req.body;
+
+
+
+    if (!fullName || !email || !mobile || !password) {
+
+      return res.status(400).json({
+        message:
+        "Full name, email, mobile and password are required"
+      });
+
+    }
+
+
+
+    const existingUser = await User.findOne({
+      email
     });
+
+
+
+    if (existingUser) {
+
+      return res.status(400).json({
+        message:"Email already registered"
+      });
+
+    }
+
+
+
+    // Find Referrer using Referral Code
+
+    let referrer = null;
+
+
+    if (referralCode) {
+
+      const refUser = await User.findOne({
+        referralCode: referralCode
+      });
+
+
+      if (refUser) {
+
+        referrer = refUser._id;
+
+      }
+
+    }
+
+
+
+
+    // Create User
+
+    const user = new User({
+
+      fullName,
+
+      email,
+
+      mobile,
+
+      password,
+
+      referredBy: referrer
+
+    });
+
+
 
     await user.save();
 
+
+
     res.status(201).json({
-      message: "Registration successful",
-      user: {
-        id: user._id,
-        fullName: user.fullName,
-        email: user.email,
-        mobile: user.mobile,
-        referralCode: user.referralCode,
-      },
-    });
-  } catch (error) {
-    console.error("Register Error:", error);
 
-    res.status(500).json({
-      message: "Registration failed",
-      error: error.message,
-    });
-  }
-};
+      message:"Registration successful",
 
-// ================= LOGIN =================
-exports.login = async (req, res) => {
-  try {
-    const { email, password } = req.body;
+      user:{
 
-    if (!email || !password) {
-      return res.status(400).json({
-        message: "Email and password are required",
-      });
-    }
+        id:user._id,
 
-    const user = await User.findOne({ email });
+        fullName:user.fullName,
 
-    if (!user) {
-      return res.status(401).json({
-        message: "Invalid credentials",
-      });
-    }
+        email:user.email,
 
-    const passwordMatch = await bcrypt.compare(password, user.password);
+        mobile:user.mobile,
 
-    if (!passwordMatch) {
-      return res.status(401).json({
-        message: "Invalid credentials",
-      });
-    }
+        referralCode:user.referralCode
 
-    const token = jwt.sign(
-      {
-        id: user._id,
-        role: user.role,
-      },
-      process.env.JWT_SECRET,
-      {
-        expiresIn: "1d",
       }
+
+    });
+
+
+
+  } catch(error){
+
+
+    console.error(
+      "Register Error:",
+      error
     );
 
-    res.status(200).json({
-      message: "Login successful",
-      token,
-      user: {
-        id: user._id,
-        fullName: user.fullName,
-        email: user.email,
-        role: user.role,
-      },
-    });
-  } catch (error) {
-    console.error("Login Error:", error);
 
     res.status(500).json({
-      message: "Login failed",
-      error: error.message,
+
+      message:"Registration failed",
+
+      error:error.message
+
     });
+
+
   }
+
+};
+
+
+
+
+
+// ================= LOGIN =================
+
+
+exports.login = async(req,res)=>{
+
+
+try{
+
+
+const {
+  email,
+  password
+}=req.body;
+
+
+
+if(!email || !password){
+
+return res.status(400).json({
+
+message:"Email and password are required"
+
+});
+
+}
+
+
+
+
+const user = await User.findOne({
+email
+});
+
+
+
+if(!user){
+
+return res.status(401).json({
+
+message:"Invalid credentials"
+
+});
+
+}
+
+
+
+
+
+const passwordMatch = await bcrypt.compare(
+
+password,
+
+user.password
+
+);
+
+
+
+
+if(!passwordMatch){
+
+return res.status(401).json({
+
+message:"Invalid credentials"
+
+});
+
+}
+
+
+
+
+const token = jwt.sign(
+
+{
+
+id:user._id,
+
+role:user.role
+
+},
+
+process.env.JWT_SECRET,
+
+{
+
+expiresIn:"1d"
+
+}
+
+);
+
+
+
+
+
+res.json({
+
+message:"Login successful",
+
+token,
+
+
+user:{
+
+id:user._id,
+
+fullName:user.fullName,
+
+email:user.email,
+
+role:user.role
+
+}
+
+
+});
+
+
+
+
+}catch(error){
+
+
+console.error(
+"Login Error:",
+error
+);
+
+
+
+res.status(500).json({
+
+message:"Login failed",
+
+error:error.message
+
+});
+
+
+}
+
+
 };

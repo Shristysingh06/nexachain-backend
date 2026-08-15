@@ -4,6 +4,7 @@ function InvestmentTable() {
 
   const [investments, setInvestments] = useState([]);
 
+
   useEffect(() => {
 
     const token = localStorage.getItem("token");
@@ -14,26 +15,39 @@ function InvestmentTable() {
         Authorization: `Bearer ${token}`
       }
     })
-      .then((res) => res.json())
-      .then((data) => {
-        console.log("Investment Data:", data);
-        setInvestments(data);
-      })
-      .catch((err) => {
-        console.log("Investment Error:", err);
-      });
+
+    .then((res) => res.json())
+
+    .then((data) => {
+
+      console.log("Investment Data:", data);
+
+      setInvestments(data);
+
+    })
+
+    .catch((err) => {
+
+      console.log("Investment Error:", err);
+
+    });
+
 
   }, []);
 
 
+
   return (
+
     <div>
 
       <h3>Investment History</h3>
 
+
       <table border="1" cellPadding="10">
 
         <thead>
+
           <tr>
             <th>Amount</th>
             <th>Plan</th>
@@ -42,62 +56,82 @@ function InvestmentTable() {
             <th>Start Date</th>
             <th>End Date</th>
           </tr>
+
         </thead>
 
 
         <tbody>
 
-          {
-            investments.length > 0 ?
 
-            investments.map((item) => (
+        {
+          investments.length > 0 ?
 
-              <tr key={item._id}>
+          investments.map((item)=>(
 
-                <td>
-                  ₹ {item.amount}
-                </td>
+            <tr key={item._id}>
 
-                <td>
-                  {item.planDetails || "N/A"}
-                </td>
 
-                <td>
-                  {item.dailyROI} %
-                </td>
-
-                <td>
-                  {item.status}
-                </td>
-
-                <td>
-                  {item.startDate?.slice(0,10)}
-                </td>
-
-                <td>
-                  {item.endDate?.slice(0,10)}
-                </td>
-
-              </tr>
-
-            ))
-
-            :
-
-            <tr>
-              <td colSpan="6">
-                No Investment Found
+              <td>
+                ₹ {item.investmentAmount}
               </td>
+
+
+              <td>
+                {item.planDetails}
+              </td>
+
+
+              <td>
+                {item.dailyROIPercentage} %
+              </td>
+
+
+              <td>
+                {item.status}
+              </td>
+
+
+              <td>
+                {item.createdAt?.slice(0,10)}
+              </td>
+
+
+              <td>
+                {item.endDate ? item.endDate.slice(0,10) : "N/A"}
+              </td>
+
+
             </tr>
 
-          }
+
+          ))
+
+
+          :
+
+          <tr>
+
+            <td colSpan="6">
+              No Investment Found
+            </td>
+
+          </tr>
+
+
+        }
+
 
         </tbody>
 
+
       </table>
 
+
     </div>
+
   );
+
 }
+
 
 export default InvestmentTable;

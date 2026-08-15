@@ -1,25 +1,54 @@
 const Investment = require("../models/Investment");
+const ROIHistory = require("../models/ROIHistory");
 
-// 🔥 GET ROI
+// 🔥 GET MY ROI HISTORY
 const getMyROI = async (req, res) => {
   try {
-    const investments = await Investment.find({ user: req.user.id });
+
+    const investments = await Investment.find({
+      user: req.user.id
+    });
+
 
     let totalROI = 0;
 
-    investments.forEach(inv => {
-      totalROI += inv.amount * 0.1; // example 10% ROI
+
+    investments.forEach((inv) => {
+
+      totalROI += inv.totalROIEarned || 0;
+
     });
+
+
+    const roiHistory = await ROIHistory.find({
+      user: req.user.id
+    }).sort({
+      createdAt: -1
+    });
+
 
     res.json({
+
       totalInvestments: investments.length,
-      totalROI
+
+      totalROI,
+
+      history: roiHistory
+
     });
 
+
   } catch (err) {
-    res.status(500).json({ message: err.message });
+
+    console.log("ROI Error:", err);
+
+    res.status(500).json({
+      message: err.message
+    });
+
   }
 };
+
 
 module.exports = {
   getMyROI
