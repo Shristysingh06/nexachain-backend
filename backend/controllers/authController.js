@@ -2,285 +2,139 @@ const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
 const User = require("../models/User");
 
-
 // ================= REGISTER =================
-
 exports.register = async (req, res) => {
-
   try {
-
     const {
       fullName,
       email,
       mobile,
       password,
-      referralCode
+      referralCode,
     } = req.body;
 
-
-
+    // Required fields
     if (!fullName || !email || !mobile || !password) {
-
       return res.status(400).json({
-        message:
-        "Full name, email, mobile and password are required"
+        message: "Full name, email, mobile and password are required",
       });
-
     }
 
-
-
-    const existingUser = await User.findOne({
-      email
-    });
-
-
+    // Check existing email
+    const existingUser = await User.findOne({ email });
 
     if (existingUser) {
-
       return res.status(400).json({
-        message:"Email already registered"
+        message: "Email already registered",
       });
-
     }
 
+    // ================= REFERRAL =================
+    let referredBy = null;
 
-
-    // Find Referrer using Referral Code
-
-    let referrer = null;
-
-
-    if (referralCode) {
-
-      const refUser = await User.findOne({
-        referralCode: referralCode
+    if (referralCode && referralCode.trim() !== "") {
+      const referringUser = await User.findOne({
+        referralCode: referralCode.trim(),
       });
 
-
-      if (refUser) {
-
-        referrer = refUser._id;
-
+      if (!referringUser) {
+        return res.status(400).json({
+          message: "Invalid referral code",
+        });
       }
 
+      referredBy = referringUser._id;
     }
 
-
-
-
-    // Create User
-
+    // ================= CREATE USER =================
     const user = new User({
-
       fullName,
-
       email,
-
       mobile,
-
       password,
-
-      referredBy: referrer
-
+      referredBy,
     });
-
-
 
     await user.save();
 
-
-
-    res.status(201).json({
-
-      message:"Registration successful",
-
-      user:{
-
-        id:user._id,
-
-        fullName:user.fullName,
-
-        email:user.email,
-
-        mobile:user.mobile,
-
-        referralCode:user.referralCode
-
-      }
-
+    return res.status(201).json({
+      message: "Registration successful",
+      user: {
+        id: user._id,
+        fullName: user.fullName,
+        email: user.email,
+        mobile: user.mobile,
+        referralCode: user.referralCode,
+        referredBy: user.referredBy,
+      },
     });
+  } catch (error) {
+    console.error("Register Error:", error);
 
-
-
-  } catch(error){
-
-
-    console.error(
-      "Register Error:",
-      error
-    );
-
-
-    res.status(500).json({
-
-      message:"Registration failed",
-
-      error:error.message
-
+    return res.status(500).json({
+      message: "Registration failed",
+      error: error.message,
     });
-
-
   }
-
 };
 
-
-
-
-
 // ================= LOGIN =================
-
-
-exports.login = async(req,res)=>{
-
-
-try{
-
-
-const {
-  email,
-  password
-}=req.body;
-
-
-
-if(!email || !password){
-
-return res.status(400).json({
-
-message:"Email and password are required"
-
-});
-
-}
-
-
-
-
-const user = await User.findOne({
-email
-});
-
-
-
-if(!user){
-
-return res.status(401).json({
-
-message:"Invalid credentials"
-
-});
-
-}
-
-
-
-
-
-const passwordMatch = await bcrypt.compare(
-
-password,
-
-user.password
-
-);
-
-
-
-
-if(!passwordMatch){
-
-return res.status(401).json({
-
-message:"Invalid credentials"
-
-});
-
-}
-
-
-
-
-const token = jwt.sign(
-
-{
-
-id:user._id,
-
-role:user.role
-
-},
-
-process.env.JWT_SECRET,
-
-{
-
-expiresIn:"1d"
-
-}
-
-);
-
-
-
-
-
-res.json({
-
-message:"Login successful",
-
-token,
-
-
-user:{
-
-id:user._id,
-
-fullName:user.fullName,
-
-email:user.email,
-
-role:user.role
-
-}
-
-
-});
-
-
-
-
-}catch(error){
-
-
-console.error(
-"Login Error:",
-error
-);
-
-
-
-res.status(500).json({
-
-message:"Login failed",
-
-error:error.message
-
-});
-
-
-}
-
-
+exports.login = async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+      return res.status(400).json({
+        message: "Email and password are required",
+      });
+    }
+
+    const user = await User.findOne({ email });
+
+    if (!user) {
+      return res.status(401).json({
+        message: "Invalid credentials",
+      });
+    }
+
+    const passwordMatch = await bcrypt.compare(
+      password,
+      user.password
+    );
+
+    if (!passwordMatch) {
+      return res.status(401).json({
+        message: "Invalid credentials",
+      });
+    }
+
+    const token = jwt.sign(
+      {
+        id: user._id,
+        role: user.role,
+      },
+      process.env.JWT_SECRET,
+      {
+        expiresIn: "1d",
+      }
+    );
+
+    return res.status(200).json({
+      message: "Login successful",
+      token,
+      user: {
+        id: user._id,
+        fullName: user.fullName,
+        email: user.email,
+        role: user.role,
+      },
+    });
+  } catch (error) {
+    console.error("Login Error:", error);
+
+    return res.status(500).json({
+      message: "Login failed",
+      error: error.message,
+    });
+  }
 };

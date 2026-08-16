@@ -5,15 +5,47 @@ const referralIncomeSchema = new mongoose.Schema(
     user: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
+      required: true,
+      index: true,
     },
+
     referredUser: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
+      required: true,
+      index: true,
     },
-    incomeAmount: Number,
-    level: Number,
+
+    investment: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Investment",
+      required: true,
+      index: true,
+    },
+
+    level: {
+      type: Number,
+      required: true,
+      min: 1,
+    },
+
+    incomeAmount: {
+      type: Number,
+      required: true,
+      min: 0,
+    },
+
+    date: {
+      type: Date,
+      default: Date.now,
+    },
   },
-  { timestamps: true }
+  {
+    timestamps: true,
+  }
 );
 
-module.exports = mongoose.model("ReferralIncome", referralIncomeSchema);
+module.exports = mongoose.model(
+  "ReferralIncome",
+  referralIncomeSchema
+);
