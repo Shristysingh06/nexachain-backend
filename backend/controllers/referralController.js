@@ -1,37 +1,71 @@
-const Referral = require("../models/Referral");
+const ReferralIncome = require("../models/ReferralIncome");
 const User = require("../models/User");
 
-// ================= GET MY REFERRAL INCOME =================
+// =====================================================
+// GET MY REFERRAL INCOME HISTORY
+// =====================================================
+
 const getMyReferrals = async (req, res) => {
   try {
-    const referrals = await Referral.find({
+    const referrals = await ReferralIncome.find({
       user: req.user.id,
     })
-      .populate("referredUser", "fullName email")
-      .sort({ date: -1 });
+      .populate("referredUser", "fullName email referralCode")
+      .populate(
+        "investment",
+        "investmentAmount planDetails dailyROIPercentage"
+      )
+      .sort({ createdAt: -1 });
 
-    res.json(referrals);
+    return res.status(200).json(referrals);
   } catch (error) {
-    console.error("Referral Fetch Error:", error);
+    console.error(
+      "Referral Income Fetch Error:",
+      error
+    );
 
-    res.status(500).json({
+    return res.status(500).json({
       message: error.message,
     });
   }
 };
 
-// ================= CREATE REFERRAL =================
+// =====================================================
+// CREATE REFERRAL INCOME
+// =====================================================
+
 const createReferral = async (req, res) => {
   try {
-    const { referredUser, level, incomeAmount } = req.body;
+    const {
+      referredUser,
+      level,
+      incomeAmount,
+      investment,
+    } = req.body;
 
-    if (!referredUser || !level || incomeAmount === undefined) {
+    // -----------------------------------------------
+    // VALIDATION
+    // -----------------------------------------------
+
+    if (
+      !referredUser ||
+      !level ||
+      incomeAmount === undefined ||
+      !investment
+    ) {
       return res.status(400).json({
-        message: "referredUser, level and incomeAmount are required",
+        message:
+          "referredUser, level, incomeAmount and investment are required",
       });
     }
 
-    const receiver = await User.findById(req.user.id);
+    // -----------------------------------------------
+    // FIND RECEIVER
+    // -----------------------------------------------
+
+    const receiver = await User.findById(
+      req.user.id
+    );
 
     if (!receiver) {
       return res.status(404).json({
@@ -39,7 +73,13 @@ const createReferral = async (req, res) => {
       });
     }
 
-    const generatedUser = await User.findById(referredUser);
+    // -----------------------------------------------
+    // FIND GENERATED USER
+    // -----------------------------------------------
+
+    const generatedUser = await User.findById(
+      referredUser
+    );
 
     if (!generatedUser) {
       return res.status(404).json({
@@ -47,37 +87,144 @@ const createReferral = async (req, res) => {
       });
     }
 
-    const referral = await Referral.create({
-      user: req.user.id,
-      referredUser,
-      level,
-      incomeAmount,
-      date: new Date(),
-    });
+    // -----------------------------------------------
+    // CHECK DUPLICATE
+    // -----------------------------------------------
 
-    // Credit referral income
-    await User.findByIdAndUpdate(req.user.id, {
-      $inc: {
-        walletBalance: incomeAmount,
-        totalLevelIncome: incomeAmount,
-        levelIncome: incomeAmount,
-      },
-    });
+    const existingReferral =
+      await ReferralIncome.findOne({
+        user: req.user.id,
+        referredUser,
+        investment,
+        level,
+      });
 
-    res.status(201).json({
-      message: "Referral income created successfully",
+    if (existingReferral) {
+      return res.status(400).json({
+        message:
+          "Referral income already exists for this investment",
+        referral: existingReferral,
+      });
+    }
+
+    // -----------------------------------------------
+    // CREATE REFERRAL INCOME
+    // -----------------------------------------------
+
+    const referral =
+      await ReferralIncome.create({
+        user: req.user.id,
+
+        referredUser,
+
+        investment,
+
+        level,
+
+        incomeAmount,
+
+        date: new Date(),
+      });
+
+    // -----------------------------------------------
+    // CREDIT USER WALLET
+    // -----------------------------------------------
+
+    await User.findByIdAndUpdate(
+      req.user.id,
+      {
+        $inc: {
+          walletBalance: incomeAmount,
+
+          totalLevelIncome:
+            incomeAmount,
+        },
+      }
+    );
+
+    return res.status(201).json({
+      message:
+        "Referral income created successfully",
+
       referral,
     });
   } catch (error) {
-    console.error("Referral Create Error:", error);
+    console.error(
+      "Referral Create Error:",
+      error
+    );
 
-    res.status(500).json({
+    return res.status(500).json({
       message: error.message,
     });
   }
 };
 
+// =====================================================
+// GET COMPLETE REFERRAL TREE
+// =====================================================
+
+const getReferralTree = async (req, res) => {
+  try {
+    const buildTree = async (userId) => {
+      const children = await User.find(
+        {
+          referredBy: userId,
+        },
+        "fullName email referralCode referredBy"
+      ).lean();
+
+      const tree = [];
+
+      for (const child of children) {
+        tree.push({
+          _id: child._id,
+
+          fullName: child.fullName,
+
+          email: child.email,
+
+          referralCode:
+            child.referralCode,
+
+          referredBy:
+            child.referredBy,
+
+          children:
+            await buildTree(child._id),
+        });
+      }
+
+      return tree;
+    };
+
+    const tree = await buildTree(
+      req.user.id
+    );
+
+    return res.status(200).json({
+      userId: req.user.id,
+
+      tree,
+    });
+  } catch (error) {
+    console.error(
+      "Referral Tree Error:",
+      error
+    );
+
+    return res.status(500).json({
+      message: error.message,
+    });
+  }
+};
+
+// =====================================================
+// EXPORT
+// =====================================================
+
 module.exports = {
   getMyReferrals,
   createReferral,
+  getReferralTree,
 };

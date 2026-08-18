@@ -2,16 +2,29 @@ const express = require("express");
 const router = express.Router();
 
 const authMiddleware = require("../middleware/authMiddleware");
-
-// ✅ correct import
 const referralController = require("../controllers/referralController");
 
-// 🔥 DEBUG
 console.log("Referral Controller:", referralController);
 
-// ✅ routes
-router.get("/my", authMiddleware, referralController.getMyReferrals);
+// Direct referrals
+router.get(
+  "/my",
+  authMiddleware,
+  referralController.getMyReferrals
+);
 
-router.post("/create", authMiddleware, referralController.createReferral);
+// Create referral income
+router.post(
+  "/create",
+  authMiddleware,
+  referralController.createReferral
+);
+
+// Complete referral tree
+router.get(
+  "/tree",
+  authMiddleware,
+  referralController.getReferralTree
+);
 
 module.exports = router;

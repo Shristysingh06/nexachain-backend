@@ -71,6 +71,19 @@ const invest = async (req, res) => {
     }
 
     // =================================================
+    // INVESTMENT DATES
+    // =================================================
+
+    const startDate = new Date();
+
+    const maxDays = 30;
+
+    const endDate = new Date(startDate);
+    endDate.setDate(
+      endDate.getDate() + maxDays
+    );
+
+    // =================================================
     // CREATE INVESTMENT
     // =================================================
 
@@ -83,7 +96,11 @@ const invest = async (req, res) => {
 
       dailyROIPercentage: roi,
 
-      maxDays: 30,
+      startDate,
+
+      endDate,
+
+      maxDays,
 
       status: "Active",
     });
